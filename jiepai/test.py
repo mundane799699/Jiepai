@@ -25,6 +25,7 @@ if __name__ == '__main__':
     repin: 0
   }
     """
+    # pattern = re.compile('gallery: JSON\.parse\("(.*?)"\),', re.S)
     pattern = re.compile(r'gallery: JSON.parse\("(.*?)"\),', re.S)
     result = re.search(pattern, html)
     if result:
