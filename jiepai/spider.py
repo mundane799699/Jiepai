@@ -17,6 +17,11 @@ from jiepai.config import *
 from multiprocessing import Pool
 
 dir_name = '图片相册'
+
+headers = {
+    'User-Agent': "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/22.0.1207.1 Safari/537.1"
+}
+
 if not os.path.exists(dir_name):
     try:
         os.mkdir(dir_name)
@@ -33,9 +38,6 @@ def get_page_index(offset, keyword):
         'count': 20,
         'cur_tab': 1,
         'from': 'search_tab'
-    }
-    headers = {
-        'User-Agent': "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/22.0.1207.1 Safari/537.1"
     }
     try:
         response = requests.get(url='https://www.toutiao.com/search_content', params=data, headers=headers)
@@ -58,7 +60,7 @@ def parse_page_index(html):
 
 def get_page_detail(url):
     try:
-        response = requests.get(url)
+        response = requests.get(url, headers=headers)
         # response.encoding = response.apparent_encoding
         if response.status_code == 200:
             return response.text
@@ -117,13 +119,28 @@ def save_image(content):
 
 
 def main(offset):
-    html = get_page_index(offset, KEYWORD)
-    for url in parse_page_index(html):
-        detail_html = get_page_detail(url)
-        if detail_html:
-            result = parse_page_detail(detail_html, url)
-            # if result:
-            #     print(result)
+    json_str = get_page_index(offset, KEYWORD)
+    json_data = json.loads(json_str)
+    if json_data and 'data' in json_data.keys():
+        for dataItem in json_data.get('data'):
+            if dataItem and 'title' in dataItem.keys():
+                title = dataItem.get('title')
+                if '街拍' in title:
+                    if 'article_url' in dataItem.keys():
+                        article_url = dataItem.get('article_url')
+                        detail_page = get_page_detail(article_url)
+                        images_pattern = re.compile(r'gallery: JSON.parse\("(.*?)"\),', re.S)
+                        result = re.search(images_pattern, detail_page)
+                        if result:
+                            data_str = codecs.getdecoder('unicode_escape')(result.group(1))[0]
+                            json_images = json.loads(data_str)
+                            if 'sub_images' in json_images:
+                                sub_images = json_images.get('sub_images')
+                                for sub_image in sub_images:
+                                    image_url = sub_image.get('url')
+                                    print('image_url =', image_url)
+                                    download_image(image_url)
+
 
 
 if __name__ == '__main__':
